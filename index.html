@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>确认操作</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .card {
+            background: #fff;
+            border-radius: 20px;
+            padding: 40px 30px;
+            width: 100%;
+            max-width: 360px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+        .icon {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 20px;
+            background: #f0f4ff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+        }
+        h2 { color: #333; margin-bottom: 12px; font-size: 22px; }
+        .info {
+            color: #666;
+            font-size: 16px;
+            line-height: 1.6;
+            margin-bottom: 30px;
+            word-break: break-all;
+            min-height: 50px;
+        }
+        .btn {
+            width: 100%;
+            padding: 16px 0;
+            border: none;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.1s, opacity 0.2s;
+        }
+        .btn:active { transform: scale(0.98); }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        .result {
+            margin-top: 20px;
+            font-size: 14px;
+            min-height: 20px;
+        }
+        .result.ok { color: #52c41a; }
+        .result.err { color: #ff4d4f; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="icon">✓</div>
+        <h2 id="title">请确认</h2>
+        <div class="info" id="info">加载中...</div>
+        <button class="btn" id="confirmBtn" onclick="doConfirm()">确认</button>
+        <div class="result" id="result"></div>
+    </div>
+
+    <script>
+        // 巴法云配置
+        const BEMFA_UID   = "a1d2d1a17e0a4c9fa734326b238221cf";
+        const BEMFA_TOPIC = "QR004";
+
+        // 解析 URL 参数
+        function getParam(name) {
+            const url = new URL(window.location.href);
+            return url.searchParams.get(name) || "";
+        }
+
+        const action = getParam("action");   // buy / ticket / recharge
+        const token  = getParam("token");
+        let   info   = getParam("info");
+
+        // 把 info 里的下划线替换回空格，方便阅读
+        info = info.replace(/_/g, " ");
+
+        // 根据 action 显示不同标题
+        const titles = {
+            buy:      "确认购票",
+            ticket:   "确认取票",
+            recharge: "确认充值"
+        };
+        document.getElementById("title").textContent = titles[action] || "请确认";
+        document.getElementById("info").textContent  = info || "暂无详情";
+
+        function doConfirm() {
+            if (!token) {
+                showResult("缺少确认凭证，请重新扫码", false);
+                return;
+            }
+
+            const btn = document.getElementById("confirmBtn");
+            btn.disabled = true;
+            btn.textContent = "确认中...";
+
+            const msg = `action=${action};token=${token};status=ok`;
+            const params = new URLSearchParams();
+            params.append("msg", msg);
+
+            fetch(`https://apis.bemfa.com/v1/${BEMFA_TOPIC}/push/${BEMFA_UID}/`, {
+                method: "POST",
+                body: params
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.code === 200 || data.message === "ok") {
+                    btn.textContent = "已确认";
+                    showResult("确认成功，开发板已收到指令", true);
+                } else {
+                    btn.disabled = false;
+                    btn.textContent = "确认";
+                    showResult("确认失败：" + (data.message || JSON.stringify(data)), false);
+                }
+            })
+            .catch(err => {
+                btn.disabled = false;
+                btn.textContent = "确认";
+                showResult("网络错误：" + err.message, false);
+            });
+        }
+
+        function showResult(text, ok) {
+            const el = document.getElementById("result");
+            el.textContent = text;
+            el.className = "result " + (ok ? "ok" : "err");
+        }
+    </script>
+</body>
+</html>
