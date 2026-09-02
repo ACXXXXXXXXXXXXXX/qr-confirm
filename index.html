@@ -110,6 +110,8 @@
 
             fetch(`${API_BASE}/api/qr-confirm`, {
                 method: "POST",
+                mode: "cors",
+                cache: "no-store",
                 headers: {
                     "Content-Type": "application/json; charset=UTF-8"
                 },
@@ -122,15 +124,28 @@
             .then(async (res) => {
                 const text = await res.text();
                 let data = null;
-                try { data = text ? JSON.parse(text) : null; } catch (e) { data = null; }
+                try {
+                    data = text ? JSON.parse(text) : null;
+                } catch (e) {
+                    data = null;
+                }
 
-                if (res.ok && (data?.result === 1 || text.toLowerCase().includes("ok") || text.toLowerCase().includes("success"))) {
+                const success = res.ok && (
+                    data?.result === 1 ||
+                    data?.msg === "ok" ||
+                    text.toLowerCase().includes("\"result\":1") ||
+                    text.toLowerCase().includes("\"msg\":\"ok\"") ||
+                    text.toLowerCase().includes("success") ||
+                    text.toLowerCase().includes("ok")
+                );
+
+                if (success) {
                     btn.textContent = "已确认";
                     showResult("确认成功，开发板已收到指令", true);
                     return;
                 }
 
-                const detail = data ? (data.msg || JSON.stringify(data)) : text || "未知返回";
+                const detail = data ? (data.msg || JSON.stringify(data)) : (text || "未知返回");
                 btn.disabled = false;
                 btn.textContent = "确认";
                 showResult("确认失败：" + detail, false);
@@ -138,7 +153,7 @@
             .catch((err) => {
                 btn.disabled = false;
                 btn.textContent = "确认";
-                showResult("网络错误：" + err.message, false);
+                showResult("网络错误：" + (err && err.message ? err.message : "请求失败"), false);
             });
         }
 
