@@ -119,18 +119,30 @@
 
             fetch(`https://apis.bemfa.com/v1/${BEMFA_TOPIC}/push/${BEMFA_UID}/`, {
                 method: "POST",
-                body: params
+                body: params,
+                headers: {
+                    "Accept": "application/json, text/plain, */*"
+                }
             })
-            .then(res => res.json())
-            .then(data => {
-                if (data.code === 200 || data.message === "ok") {
+            .then(async (res) => {
+                const text = await res.text();
+                let data = null;
+                try {
+                    data = text ? JSON.parse(text) : null;
+                } catch (e) {
+                    data = null;
+                }
+
+                if (res.ok && (data?.code === 200 || data?.message === "ok" || text.includes("ok") || text.includes("success"))) {
                     btn.textContent = "已确认";
                     showResult("确认成功，开发板已收到指令", true);
-                } else {
-                    btn.disabled = false;
-                    btn.textContent = "确认";
-                    showResult("确认失败：" + (data.message || JSON.stringify(data)), false);
+                    return;
                 }
+
+                const detail = data ? (data.message || JSON.stringify(data)) : text || "未知返回";
+                btn.disabled = false;
+                btn.textContent = "确认";
+                showResult("确认失败：" + detail, false);
             })
             .catch(err => {
                 btn.disabled = false;
